@@ -28,15 +28,17 @@
           crossorigin="anonymous"></script>
   <meta name="theme-color" content="#fafafa">
   <script>
-    const apiURL = "https://z8x4p2lx07.execute-api.ap-northeast-2.amazonaws.com/dev/myFirstLambda"
+    const apiURL = "https://api.itwassummer.shop";
     window.onload = () => {
-      showTitles();
+      getList();
     }
-    function showTitles() {
+    function getList() {
+      let word = $("#searchInput").val()
       $.ajax({
+        method:"GET",
         url: `${apiURL}?type=list`,
-        method: "GET",
         success: function (result) {
+          $("#list").empty();
           result['data'].forEach((data, i) => {
             let { idx, title, regDate, content } = data;
             $('#list').append(`<tr onclick="detail('${idx}')">
@@ -52,9 +54,9 @@
       let title = $("#titleInput").val();
       let content = $("#FormControlTextarea1").val();
       $.ajax({
+        method:"POST",
         url: `${apiURL}?type=write`,
         data: JSON.stringify({title, content}),
-        method: "POST",
         contentType: "application/json",
         success: function (result) {
           alert(result.message);
@@ -64,17 +66,27 @@
     }
     function detail(idx) {
       $.ajax({
+        method:"GET",
         url: `${apiURL}?type=read&idx=${idx}`,
-        data: {},
-        method: "GET",
         success: function (response) {
-          let { idx, title, regDate, content } = response.data;
+          let { idx, title, content } = response.data;
           $(".modal-title").text(title);
           $(".modal-body").text(content);
+          $("#del").on('click',()=>deleteContent(idx))
           $("#detail-modal").show();
         }
       })
     }
+      function deleteContent (idx) {
+        $.ajax({
+          method: "DELETE",
+          url: `${apiURL}?type=delete&idx=${idx}`,
+          success: function (response) {
+            alert(response.message);
+            location.reload()
+          }
+        })
+      }
   </script>
 </head>
 
@@ -83,23 +95,28 @@
   <form class="mt-5 mb-5">
     <div class="form-floating mb-3">
       <input type="text" class="form-control" id="titleInput">
-      <label for="titleInput" class="form-label">제목을 붙여 주세요.</label>
+      <label for="titleInput" class="form-label">Set a Title for readers!</label>
     </div>
     <div class="form-floating mb-3">
       <textarea class="form-control" id="FormControlTextarea1" rows="4"></textarea>
-      <label for="FormControlTextarea1" class="form-label">이야기를 들려 주세요.</label>
+      <label for="FormControlTextarea1" class="form-label">Tell me your story!</label>
     </div>
-    <button type="button" class="btn btn-outline-secondary" onclick="writeContent()">작성</button>
+    <button type="button" class="btn btn-outline-secondary" onclick="writeContent()">Write</button>
   </form>
+  <div class="input-group mb-3">
+    <input type="search" class="form-control" id="searchInput" aria-describedby="button1" placeholder="insert query">
+    <label for="searchInput" style="display: none;">Insert Query</label>
+    <button class="btn btn-outline-secondary" type="button" id="button1" onclick="getList()">Search</button>
+  </div>
   <table class="table table-dark table-hover">
-    <thead id="list">
+    <thead>
       <tr>
         <th scope="col">#</th>
-        <th scope="col">제목</th>
-        <th scope="col">작성일</th>
+        <th scope="col">Title</th>
+        <th scope="col">Registered</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="list">
     </tbody>
   </table>
   <div class="modal" tabindex="-1" id="detail-modal">
@@ -114,7 +131,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="$('.modal').hide()">Close</button>
-          <button type="button" class="btn btn-primary">Save changes</button>
+          <button type="button" class="btn btn-danger" id="del">DELETE</button>
         </div>
       </div>
     </div>

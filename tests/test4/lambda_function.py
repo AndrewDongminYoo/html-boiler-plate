@@ -38,7 +38,7 @@ def db_ops():
 
 
 def lambda_handler(event, context):
-    print(event)
+    print(json.dumps(event))
     print(context)
     action_type = event['queryStringParameters']['type']
     res_body = ""
@@ -73,9 +73,15 @@ def lambda_handler(event, context):
                 "message": "success",
             })
     elif action_type == 'list':
-        # noinspection SqlResolve
-        cursor.execute("select idx, title, content, regDate from board")
-        result = cursor.fetchall()
+        query = event['queryStringParameters'].get('word')
+        if not query:
+            # noinspection SqlResolve
+            cursor.execute("select idx, title, regDate from `board`")
+            result = cursor.fetchall()
+        else:
+            # noinspection SqlResolve
+            cursor.execute(f"select idx, title, regDate from `board` where title like '%{query}%'")
+            result = cursor.fetchall()
         res_body = json.dumps({
             "message": "success",
             "data": result
@@ -92,7 +98,7 @@ def lambda_handler(event, context):
     elif action_type == 'delete':
         idx = event['queryStringParameters']['idx']
         # noinspection SqlResolve
-        cursor.execute("delete from `board` where idx="+idx)
+        cursor.execute("delete from `board` where idx=" + idx)
         conn.commit()
         res_body = json.dumps({
             "message": "success",
@@ -101,9 +107,9 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         'headers': {
-            'Access-Control-Allow-Headers': 'Content-Type,x-requested-with',
+            'Access-Control-Allow-Headers': 'Content-Type',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET'
+            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,DELETE,PUT'
         },
         "body": res_body,
     }
