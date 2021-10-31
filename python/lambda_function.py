@@ -1,78 +1,72 @@
 import json
 import boto3.session
-import base64
 import pymysql
-from requests_toolbelt.multipart import decoder
+import datetime
 
 
-def create_connection_token():
+def get_secret():
     session = boto3.session.Session()
     client = session.client(
         service_name='secretsmanager',
-        region_name="us-east-1"
+        region_name="ap-northeast-2"
     )
     get_secret_value_response = client.get_secret_value(
-        SecretId='database-access-key'
+        SecretId='mysql-secret'
     )
     token = get_secret_value_response['SecretString']
     return eval(token)
 
 
 def db_ops():
-    secrets = create_connection_token()
+    secrets = get_secret()
+    print(secrets)
     try:
         connection = pymysql.connect(
             host=secrets['host'],
             user=secrets['username'],
             password=secrets['password'],
             port=secrets['port'],
-            db='sparta',
+            database='sparta',
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor
         )
 
     except pymysql.MySQLError as e:
-        print("connection error!!")
-        return e
+        print("connection error!!", e)
+        return
+    except pymysql.OperationalError as e:
+        print("operational error!!", e)
+        return
 
     print("connection ok!!")
     return connection
 
 
-def uploadToS3(body, original_file_name):
-    s3 = boto3.client('s3', region_name="us-east-1")
-    s3.put_object(
-        ACL="public-read",
-        Bucket='itwassummer.shop',
-        Body=body,
-        Key=original_file_name,
-        ContentType='images/' + original_file_name.split('.')[1]
-    )
-
+def lambda_handler(event, context):
+    print(json.dumps(event))
+    body = json.loads(event['body'])
+    print(body)
+    print(context)
     conn = db_ops()
     cursor = conn.cursor()
-    cursor.execute("insert into image (url) value('" + original_file_name + "')")
+    cursor.execute("use `sparta`;")
+    # noinspection SqlResolve
+    cursor.execute("alter table `board` add reg_Date datetime null;")
+    # noinspection SqlResolve
+    cursor.execute(f"""insert into `board` (title, content) values ('{body["title"]}', '{body["content"]}');""")
     conn.commit()
-
-
-def lambda_handler(event, context):
-    if 'Content-Type' in event['headers']:
-        content_type_header = event['headers']['Content-Type']
-    else:
-        content_type_header = event['headers']['content-type']
-    print(context)
-    post_data = base64.b64decode(json.loads(event["body"])).decode('iso-8859-1')
-    lst = []
-    for part in decoder.MultipartDecoder(post_data.encode('utf-8'), content_type_header).parts:
-        lst.append(part.text)
-
-    decoder_file = decoder.MultipartDecoder(post_data.encode('utf-8'), content_type_header)
-    print(decoder_file)
-    file_name = lst[1]  # 파일명은 한글이 아니어야 한다.
-    uploadToS3(lst[0].encode('iso-8859-1'), file_name)
     return {
         "statusCode": 200,
         "body": json.dumps({
             "message": "success",
-        }),
+            "rows": conn.affected_rows()
+        })
     }
+
+
+if __name__ == '__main__':
+    try:
+        result = lambda_handler({"body": "{\"title\": \"this is title\", \"content\": \"this is content\"}"}, None)
+        print(result, datetime.datetime.utcnow())
+    except AttributeError:
+        print()
