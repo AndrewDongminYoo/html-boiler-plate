@@ -40,19 +40,18 @@ def db_ops():
 
 
 def uploadToS3(body, original_file_name):
-    s3 = boto3.client(
-        's3',
-        region_name="ap-northeast-2")
+    s3 = boto3.client('s3')
     s3.put_object(
         ACL="public-read",
         Bucket='aws-lambda-image',
         Body=body,
         Key=original_file_name,
-        ContentType='images/' + original_file_name.split('.')[1]
+        ContentType='image/' + original_file_name.split('.')[1]
     )
 
     conn = db_ops()
     cursor = conn.cursor()
+    cursor.execute("use sparta;")
     # noinspection SqlResolve
     cursor.execute(f"""
     create table if not exists image( 

@@ -1,5 +1,5 @@
 /venv/
-/.idea/
+*/.idea/
 /python/PyMySQL-1.0.2.dist-info/
 /python/pymysql/
 /python/certifi/
@@ -19,4 +19,9 @@ LICENSE.*
 LICENSE
 AUTHORS.rst
 entry_points.txt
-
+/.idea/
+/src/doc/
+/src/site.webmanifest
+/src/.editorconfig
+/src/.gitattributes
+/src/.gitignore
