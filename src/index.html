@@ -36,7 +36,7 @@
       let word = $("#searchInput").val()
       let url = word ? `${apiURL}?type=list&word=${word}` : `${apiURL}?type=list`;
       $.ajax({
-        method:"GET",
+        type:"GET",
         url: url,
         success: function (result) {
           $("#list").empty();
@@ -55,7 +55,7 @@
       let title = $("#titleInput").val();
       let content = $("#FormControlTextarea1").val();
       $.ajax({
-        method:"POST",
+        type:"POST",
         url: `${apiURL}?type=write`,
         data: JSON.stringify({title, content}),
         contentType: "application/json",
@@ -67,7 +67,7 @@
     }
     function detail(idx) {
       $.ajax({
-        method:"GET",
+        type:"GET",
         url: `${apiURL}?type=read&idx=${idx}`,
         success: function (response) {
           let { idx, title, content } = response.data;
@@ -80,7 +80,7 @@
     }
       function deleteContent (idx) {
         $.ajax({
-          method: "DELETE",
+          type: "DELETE",
           url: `${apiURL}?type=delete&idx=${idx}`,
           success: function (response) {
             alert(response.message);
@@ -88,12 +88,28 @@
           }
         })
       }
+      function fileUpload () {
+        let formData = new FormData()
+        let file = document.querySelector("#inputFile").files[0]
+        formData.append("file", file)
+        formData.append("name", `${Date.now()}.${file.name.split('.').pop()}`)
+        $.ajax({
+          type: "POST",
+          processData: false,
+          contentType: false,
+          data: formData,
+          url: `${apiURL}?type=file`,
+          success: function (response) {
+            alert(response.message);
+            console.log(response['file_name'])
+          }
+        })
+      }
   </script>
 </head>
-
 <body>
 <div class="container">
-  <form class="mt-5 mb-5">
+  <form id="postForm" class="mt-5 mb-5" enctype="multipart/form-data">
     <div class="form-floating mb-3">
       <input type="text" class="form-control" id="titleInput">
       <label for="titleInput" class="form-label">Set a Title for readers!</label>
@@ -101,6 +117,10 @@
     <div class="form-floating mb-3">
       <textarea class="form-control" id="FormControlTextarea1" rows="4"></textarea>
       <label for="FormControlTextarea1" class="form-label">Tell me your story!</label>
+    </div>
+    <div class="input-group mb-3">
+      <input type="file" class="form-control" id="inputFile" aria-label="Upload" accept="image/*">
+      <button class="btn btn-outline-secondary" type="button" id="inputFileBtn" onclick="fileUpload()">Upload</button>
     </div>
     <button type="button" class="btn btn-outline-secondary" onclick="writeContent()">Write</button>
   </form>

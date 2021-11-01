@@ -1,7 +1,34 @@
-import json
+from requests_toolbelt.multipart import decoder
+from datetime import date
 import boto3.session
 import pymysql
-from datetime import date
+import base64
+import json
+
+
+def uploadToS3(body, original_file_name):
+    s3 = boto3.client(
+        's3',
+        region_name="ap-northeast-2")
+    s3.put_object(
+        ACL="public-read",
+        Bucket='itwassummer.shop',
+        Body=body,
+        Key=original_file_name,
+        ContentType='images/' + original_file_name.split('.')[1]
+    )
+    conn = db_ops()
+    cursor = conn.cursor()
+    # noinspection SqlResolve
+    cursor.execute("""
+    create table if not exists image( 
+    idx int auto_increment, 
+    url varchar(200) null, 
+    constraint image_pk 
+    primary key (idx));""")
+    # noinspection SqlResolve
+    cursor.execute(f"insert into image (url) value('{original_file_name}');")
+    conn.commit()
 
 
 def get_secret():
@@ -37,9 +64,16 @@ def db_ops():
     return connection
 
 
+def response(key=None, value=None):
+    if not key and value:
+        return json.dumps({"message": "success"})
+    return json.dumps({
+        "message": "success",
+        key: value
+    })
+
+
 def lambda_handler(event, context):
-    print(json.dumps(event))
-    print(context)
     action_type = event['queryStringParameters']['type']
     res_body = ""
     conn = db_ops()
@@ -55,50 +89,47 @@ def lambda_handler(event, context):
     primary key (idx));""")
     if action_type == 'write':
         if event['httpMethod'] == 'OPTIONS':
-            res_body = json.dumps({
-                "message": "success",
-            })
+            res_body = response()
         else:
             today = date.today()
             body = json.loads(event['body'])
-            # noinspection SqlResolve
             cursor.execute(f"""insert into board (title, content, regDate) 
             value('{body['title']}', '{body['content']}', '{today.strftime("%Y%m%d")}');""")
             conn.commit()
-            res_body = json.dumps({
-                "message": "success",
-            })
+            res_body = response()
     elif action_type == 'list':
         query = event['queryStringParameters'].get('word')
         if not query:
-            # noinspection SqlResolve
             cursor.execute("select idx, title, regDate from `board`")
             result = cursor.fetchall()
         else:
-            # noinspection SqlResolve
             cursor.execute(f"select idx, title, regDate from `board` where title like '%{query}%'")
             result = cursor.fetchall()
-        res_body = json.dumps({
-            "message": "success",
-            "data": result
-        })
+        res_body = response("data", result)
     elif action_type == 'read':
         idx = event['queryStringParameters']['idx']
-        # noinspection SqlResolve
         cursor.execute("select * from board where idx=" + idx)
-        bbs = cursor.fetchone()
-        res_body = json.dumps({
-            "result": "success",
-            "data": bbs
-        })
+        post = cursor.fetchone()
+        res_body = response("data", post)
     elif action_type == 'delete':
         idx = event['queryStringParameters']['idx']
-        # noinspection SqlResolve
         cursor.execute("delete from `board` where idx=" + idx)
         conn.commit()
-        res_body = json.dumps({
-            "message": "success",
-        })
+        res_body = response()
+    elif action_type == "file":
+        if 'Content-Type' in event['headers']:
+            content_type = event['headers']['Content-Type']
+        else:
+            content_type = event['headers']['content-type']
+        _file = base64.b64decode(event['body']).decode('iso-8859-1')
+        lst = []
+        for part in decoder.MultipartDecoder(_file.encode('utf-8'), content_type).parts:
+            lst.append(part.text)
+        print("lst:", lst)
+        decoder_file = decoder.MultipartDecoder(_file.encode('utf-8'), content_type)
+        file_name = lst[1]  # 파일명은 한글이 아니어야 한다.
+        uploadToS3(lst[0].encode('iso-8859-1'), file_name)
+        res_body = response("file_name", file_name)
 
     return {
         "statusCode": 200,
