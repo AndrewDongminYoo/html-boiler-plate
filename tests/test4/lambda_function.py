@@ -14,19 +14,17 @@ def uploadToS3(body, original_file_name):
         ACL="public-read",
         Bucket='itwassummer.shop',
         Body=body,
-        Key=original_file_name,
+        Key="image/"+original_file_name,
         ContentType='images/' + original_file_name.split('.')[1]
     )
     conn = db_ops()
     cursor = conn.cursor()
-    # noinspection SqlResolve
     cursor.execute("""
     create table if not exists image( 
     idx int auto_increment, 
     url varchar(200) null, 
     constraint image_pk 
     primary key (idx));""")
-    # noinspection SqlResolve
     cursor.execute(f"insert into image (url) value('{original_file_name}');")
     conn.commit()
 
@@ -46,6 +44,7 @@ def get_secret():
 
 def db_ops():
     secrets = get_secret()
+    print(secrets)
     try:
         connection = pymysql.connect(
             host=secrets['host'],
@@ -74,6 +73,8 @@ def response(key=None, value=None):
 
 
 def lambda_handler(event, context):
+    print("event:", json.dumps(event))
+    print("context:", context)
     action_type = event['queryStringParameters']['type']
     res_body = ""
     conn = db_ops()
@@ -121,12 +122,15 @@ def lambda_handler(event, context):
             content_type = event['headers']['Content-Type']
         else:
             content_type = event['headers']['content-type']
+        print("content_type:", content_type)
         _file = base64.b64decode(event['body']).decode('iso-8859-1')
+        print("file:", _file)
         lst = []
         for part in decoder.MultipartDecoder(_file.encode('utf-8'), content_type).parts:
             lst.append(part.text)
         print("lst:", lst)
         decoder_file = decoder.MultipartDecoder(_file.encode('utf-8'), content_type)
+        print("decoder_file:", decoder_file)
         file_name = lst[1]  # 파일명은 한글이 아니어야 한다.
         uploadToS3(lst[0].encode('iso-8859-1'), file_name)
         res_body = response("file_name", file_name)
@@ -134,9 +138,12 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200,
         'headers': {
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Headers': 'Origin,Accept,X-Requested-With,'
+                                            'Content-Type,Access-Control-Request-Method,'
+                                            'Access-Control-Request-Headers,Authorization',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST,GET,HEAD'
+            'Access-Control-Allow-Methods': 'POST,GET,HEAD,OPTIONS',
+            'Access-Control-Max-Age': 3600
         },
         "body": res_body,
     }
