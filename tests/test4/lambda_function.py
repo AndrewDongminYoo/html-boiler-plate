@@ -1,5 +1,5 @@
 import json
-import boto3
+import boto3.session
 import pymysql
 from datetime import date
 
@@ -53,10 +53,6 @@ def lambda_handler(event, context):
     regDate varchar(10) null,
     constraint board_pk 
     primary key (idx));""")
-    if action_type == "drop_table":
-        cursor.execute("drop table if exists board;")
-        conn.commit()
-        res_body = "delete_many_success"
     if action_type == 'write':
         if event['httpMethod'] == 'OPTIONS':
             res_body = json.dumps({
@@ -109,7 +105,7 @@ def lambda_handler(event, context):
         'headers': {
             'Access-Control-Allow-Headers': 'Content-Type',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,DELETE,PUT'
+            'Access-Control-Allow-Methods': 'POST,GET,HEAD'
         },
         "body": res_body,
     }

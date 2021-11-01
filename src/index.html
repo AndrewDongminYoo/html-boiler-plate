@@ -28,15 +28,16 @@
           crossorigin="anonymous"></script>
   <meta name="theme-color" content="#fafafa">
   <script>
-    const apiURL = "https://api.itwassummer.shop";
+    const apiURL = "https://z8x4p2lx07.execute-api.ap-northeast-2.amazonaws.com/dev/myFirstLambda";
     window.onload = () => {
       getList();
     }
     function getList() {
       let word = $("#searchInput").val()
+      let url = word ? `${apiURL}?type=list&word=${word}` : `${apiURL}?type=list`;
       $.ajax({
         method:"GET",
-        url: `${apiURL}?type=list`,
+        url: url,
         success: function (result) {
           $("#list").empty();
           result['data'].forEach((data, i) => {
